@@ -682,11 +682,11 @@ raft_worker_f(va_list args)
 			raft_worker_handle_broadcast();
 			is_idle = false;
 		}
+		if (is_idle) {
+			assert(raft_is_fully_on_disk());
+			fiber_yield();
+		}
 		fiber_sleep(0);
-		if (!is_idle)
-			continue;
-		assert(raft_is_fully_on_disk());
-		fiber_yield();
 	}
 	return 0;
 }
