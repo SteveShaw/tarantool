@@ -2,6 +2,7 @@ test_run = require('test_run').new()
 box.schema.user.grant('guest', 'super')
 
 old_election_mode = box.cfg.election_mode
+old_election_timeout = box.cfg.election_timeout
 old_replication_synchro_timeout = box.cfg.replication_synchro_timeout
 old_replication_timeout = box.cfg.replication_timeout
 old_replication = box.cfg.replication
@@ -30,6 +31,7 @@ fiber = require('fiber')
 -- Replication timeout is small to speed up a first election start.
 box.cfg{                                                                        \
     election_mode = 'candidate',                                                \
+    election_timeout = 0.1,                                                     \
     replication_synchro_quorum = 3,                                             \
     replication_synchro_timeout = 1000000,                                      \
     replication_timeout = 0.1,                                                  \
@@ -59,6 +61,7 @@ box.cfg{replication_synchro_timeout = 1000000}
 -- up notice of the old leader death.
 box.cfg{                                                                        \
     election_mode = 'candidate',                                                \
+    election_timeout = 0.1,                                                     \
     replication_timeout = 0.01,                                                 \
 }
 
@@ -70,6 +73,7 @@ box.space.test:drop()
 test_run:cmd('delete server replica')
 box.cfg{                                                                        \
     election_mode = old_election_mode,                                          \
+    election_timeout = old_election_timeout,                                    \
     replication_timeout = old_replication_timeout,                              \
     replication = old_replication,                                              \
     replication_synchro_timeout = old_replication_synchro_timeout,              \
