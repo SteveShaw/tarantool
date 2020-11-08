@@ -31,6 +31,7 @@
  */
 #include <stdint.h>
 #include <stdbool.h>
+#include <assert.h>
 #include "tarantool_ev.h"
 #include "trigger.h"
 
@@ -165,6 +166,16 @@ struct raft {
 extern struct raft raft;
 
 /**
+ * Ensure the raft node can be used. I.e. that it is properly initialized.
+ * Entirely for debug purposes.
+ */
+static inline void
+raft_validate(void)
+{
+	assert(raft.state != 0);
+}
+
+/**
  * A flag whether the instance is read-only according to Raft. Even if Raft
  * allows writes though, it does not mean the instance is writable. It can be
  * affected by box.cfg.read_only, connection quorum.
@@ -172,6 +183,7 @@ extern struct raft raft;
 static inline bool
 raft_is_ro(void)
 {
+	raft_validate();
 	return raft.is_enabled && raft.state != RAFT_STATE_LEADER;
 }
 
@@ -179,6 +191,7 @@ raft_is_ro(void)
 static inline bool
 raft_is_source_allowed(uint32_t source_id)
 {
+	raft_validate();
 	return !raft.is_enabled || raft.leader == source_id;
 }
 
@@ -186,6 +199,7 @@ raft_is_source_allowed(uint32_t source_id)
 static inline bool
 raft_is_enabled(void)
 {
+	raft_validate();
 	return raft.is_enabled;
 }
 

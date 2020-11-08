@@ -46,21 +46,11 @@
 
 /** Raft state of this instance. */
 struct raft raft = {
-	.leader = 0,
-	.state = RAFT_STATE_FOLLOWER,
-	.volatile_term = 1,
-	.volatile_vote = 0,
-	.is_enabled = false,
-	.is_candidate = false,
-	.is_cfg_candidate = false,
-	.is_write_in_progress = false,
-	.is_broadcast_scheduled = false,
-	.term = 1,
-	.vote = 0,
-	.vote_mask = 0,
-	.vote_count = 0,
-	.worker = NULL,
-	.election_timeout = 5,
+	/*
+	 * Set an invalid state to validate in all raft functions they are not
+	 * used before raft initialization.
+	 */
+	.state = 0,
 };
 
 /**
@@ -325,6 +315,7 @@ raft_request_to_string(const struct raft_request *req)
 void
 raft_process_recovery(const struct raft_request *req)
 {
+	raft_validate();
 	say_verbose("RAFT: recover %s", raft_request_to_string(req));
 	if (req->term != 0) {
 		raft.term = req->term;
@@ -353,6 +344,7 @@ raft_process_recovery(const struct raft_request *req)
 int
 raft_process_msg(const struct raft_request *req, uint32_t source)
 {
+	raft_validate();
 	say_info("RAFT: message %s from %u", raft_request_to_string(req),
 		 source);
 	assert(source > 0);
@@ -496,6 +488,7 @@ raft_process_msg(const struct raft_request *req, uint32_t source)
 void
 raft_process_heartbeat(uint32_t source)
 {
+	raft_validate();
 	/*
 	 * Raft handles heartbeats from all instances, including anon instances
 	 * which don't participate in Raft.
@@ -905,6 +898,7 @@ raft_sm_stop(void)
 void
 raft_serialize_for_network(struct raft_request *req, struct vclock *vclock)
 {
+	raft_validate();
 	memset(req, 0, sizeof(*req));
 	/*
 	 * Volatile state is never used for any communications.
@@ -926,6 +920,7 @@ raft_serialize_for_network(struct raft_request *req, struct vclock *vclock)
 void
 raft_serialize_for_disk(struct raft_request *req)
 {
+	raft_validate();
 	memset(req, 0, sizeof(*req));
 	req->term = raft.term;
 	req->vote = raft.vote;
@@ -934,12 +929,14 @@ raft_serialize_for_disk(struct raft_request *req)
 void
 raft_on_update(struct trigger *trigger)
 {
+	raft_validate();
 	trigger_add(&raft.on_update, trigger);
 }
 
 void
 raft_cfg_is_enabled(bool is_enabled)
 {
+	raft_validate();
 	if (is_enabled == raft.is_enabled)
 		return;
 
@@ -952,6 +949,7 @@ raft_cfg_is_enabled(bool is_enabled)
 void
 raft_cfg_is_candidate(bool is_candidate)
 {
+	raft_validate();
 	bool old_is_candidate = raft.is_candidate;
 	raft.is_cfg_candidate = is_candidate;
 	raft.is_candidate = is_candidate && raft.is_enabled;
@@ -991,6 +989,7 @@ raft_cfg_is_candidate(bool is_candidate)
 void
 raft_cfg_election_timeout(double timeout)
 {
+	raft_validate();
 	if (timeout == raft.election_timeout)
 		return;
 
@@ -1008,6 +1007,7 @@ raft_cfg_election_timeout(double timeout)
 void
 raft_cfg_election_quorum(void)
 {
+	raft_validate();
 	if (raft.state != RAFT_STATE_CANDIDATE ||
 	    raft.state == RAFT_STATE_LEADER)
 		return;
@@ -1019,6 +1019,7 @@ raft_cfg_election_quorum(void)
 void
 raft_cfg_death_timeout(void)
 {
+	raft_validate();
 	if (raft.state == RAFT_STATE_FOLLOWER && raft.is_candidate &&
 	    raft.leader != 0) {
 		assert(ev_is_active(&raft.timer));
@@ -1034,6 +1035,7 @@ raft_cfg_death_timeout(void)
 void
 raft_new_term(void)
 {
+	raft_validate();
 	if (raft.is_enabled)
 		raft_sm_schedule_new_term(raft.volatile_term + 1);
 }
@@ -1079,6 +1081,11 @@ raft_schedule_broadcast(void)
 void
 raft_init(void)
 {
+	memset(&raft, 0, sizeof(raft));
+	raft.state = RAFT_STATE_FOLLOWER;
+	raft.volatile_term = 1;
+	raft.term = 1;
+	raft.election_timeout = 5;
 	ev_timer_init(&raft.timer, raft_sm_schedule_new_election_cb, 0, 0);
 	rlist_create(&raft.on_update);
 }
